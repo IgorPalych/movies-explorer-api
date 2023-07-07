@@ -9,14 +9,6 @@ const app = express();
 
 app.use(express.json());
 
-app.use((req, res, next) => {
-  req.user = {
-    _id: '64a6ec3931470af9fd98bed4',
-  };
-
-  next();
-});
-
 app.use(router);
 
 mongoose.connect(DB_URL)
