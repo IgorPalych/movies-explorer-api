@@ -1,15 +1,19 @@
 const MovieModel = require('../models/movie');
 
-const getMovies = async (req, res) => {
+const BadRequestError = require('../errors/BadRequestError');
+const ForbiddenError = require('../errors/ForbiddenError');
+const NotFoundError = require('../errors/NotFoundError');
+
+const getMovies = async (req, res, next) => {
   try {
     const movies = await MovieModel.find({ owner: req.user._id });
     res.send({ data: movies });
   } catch (err) {
-    console.log(err);
+    next(err);
   }
 };
 
-const createMovie = async (req, res) => {
+const createMovie = async (req, res, next) => {
   try {
     const {
       country,
@@ -41,23 +45,32 @@ const createMovie = async (req, res) => {
     });
     res.send({ data: movie });
   } catch (err) {
-    console.log(err);
+    console.log(err.message);
+    if (err.name === 'ValidationError') {
+      next(new BadRequestError());
+    } else {
+      next(err);
+    }
   }
 };
 
-const deleteMovie = async (req, res) => {
+const deleteMovie = async (req, res, next) => {
   try {
     const movie = await MovieModel.findById(req.params.movieId);
     if (!movie) {
-      throw new Error('Нет такого фильма');
+      throw new NotFoundError();
     }
     if (!movie.owner.equals(req.user._id)) {
-      throw new Error('У вас нет прав на удаление этого фильма');
+      throw new ForbiddenError();
     }
     await MovieModel.deleteOne(movie);
     res.send({ message: 'Фильм удален' });
   } catch (err) {
-    console.log(err.name);
+    if (err.name === 'ValidationError') {
+      next(new BadRequestError());
+    } else {
+      next(err);
+    }
   }
 };
 

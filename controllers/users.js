@@ -2,13 +2,22 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const UserModel = require('../models/user');
 
+const BadRequestError = require('../errors/BadRequestError');
+const NotFoundError = require('../errors/NotFoundError');
+const UserExist = require('../errors/UserExist');
+
+const {
+  MONGO_DUPLICATE_KEY_ERROR,
+  SALT_ROUNDS,
+} = require('../utils/config');
+
 const { NODE_ENV, JWT_SECRET } = process.env;
 
-const getCurrentUser = (req, res) => {
+const getUser = (req, res, next) => {
   UserModel.findById(req.user._id)
     .then((user) => {
       if (!user) {
-        throw new Error('Пользователь не найден');
+        throw new NotFoundError();
       }
       res.send({
         data: {
@@ -18,11 +27,11 @@ const getCurrentUser = (req, res) => {
       });
     })
     .catch((err) => {
-      console.log(err);
+      next(err);
     });
 };
 
-const updateProfile = (req, res) => {
+const updateProfile = (req, res, next) => {
   const { name, email } = req.body;
   UserModel.findByIdAndUpdate(
     req.user._id,
@@ -35,7 +44,7 @@ const updateProfile = (req, res) => {
   )
     .then((user) => {
       if (!user) {
-        throw new Error('Пользователь не найден');
+        throw new NotFoundError();
       }
       res.send({
         data: {
@@ -45,15 +54,17 @@ const updateProfile = (req, res) => {
       });
     })
     .catch((err) => {
-      console.log(err);
+      if (err.name === 'ValidationError') {
+        next(new BadRequestError());
+      } else {
+        next(err);
+      }
     });
 };
 
-const createUser = (req, res) => {
+const createUser = (req, res, next) => {
   const { email, password, name } = req.body;
-  bcrypt.hash(password, 10)
-    /* Решить вопрос, в куда пихнуть значение соли - в константы или перем
-    енные окружения */
+  bcrypt.hash(password, SALT_ROUNDS)
     .then((hash) => UserModel.create({
       email,
       password: hash,
@@ -63,12 +74,19 @@ const createUser = (req, res) => {
       res.status(201).send({ data: user });
     })
     .catch((err) => {
-      console.log(err);
+      if (err.code === MONGO_DUPLICATE_KEY_ERROR) {
+        next(new UserExist());
+      } else if (err.name === 'ValidationError') {
+        next(new BadRequestError());
+      } else {
+        next(err);
+      }
     });
 };
 
-const login = (req, res) => {
+const login = (req, res, next) => {
   const { email, password } = req.body;
+
   UserModel.findUserByCredentials(email, password)
     .then((user) => {
       const token = jwt.sign(
@@ -79,12 +97,12 @@ const login = (req, res) => {
       res.status(200).send({ data: token });
     })
     .catch((err) => {
-      console.log(err);
+      next(err);
     });
 };
 
 module.exports = {
-  getCurrentUser,
+  getUser,
   updateProfile,
   createUser,
   login,
