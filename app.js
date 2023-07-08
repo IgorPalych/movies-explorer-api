@@ -1,5 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const { errors } = require('celebrate');
 
 const router = require('./routes');
 
@@ -12,6 +13,8 @@ const app = express();
 app.use(express.json());
 
 app.use(router);
+
+app.use(errors());
 
 app.use(handleError);
 

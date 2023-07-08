@@ -13,7 +13,7 @@ const {
 
 const { NODE_ENV, JWT_SECRET } = process.env;
 
-const getUser = (req, res, next) => {
+const getUserInfo = (req, res, next) => {
   UserModel.findById(req.user._id)
     .then((user) => {
       if (!user) {
@@ -102,7 +102,7 @@ const login = (req, res, next) => {
 };
 
 module.exports = {
-  getUser,
+  getUserInfo,
   updateProfile,
   createUser,
   login,
